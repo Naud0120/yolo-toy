@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOLO 视频识别系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .panel h2 {
+            margin-bottom: 20px;
+            color: #00d9ff;
+            font-size: 1.5em;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #00d9ff;
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        input[type="text"]::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        button {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #00d9ff, #0099cc);
+            color: #fff;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 217, 255, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #00ff88, #00cc6a);
+            color: #1a1a2e;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 255, 136, 0.4);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ff4757, #ff3344);
+            color: #fff;
+        }
+        
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255, 71, 87, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #ffa502, #ff8800);
+            color: #1a1a2e;
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255, 165, 2, 0.4);
+        }
+        
+        .video-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .video-box {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+        }
+        
+        .video-box h3 {
+            margin-bottom: 10px;
+            color: #00ff88;
+        }
+        
+        .video-wrapper {
+            position: relative;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+        }
+        
+        .video-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .camera-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(0, 217, 255, 0.2);
+            border-top-color: #00d9ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .status.success {
+            background: rgba(0, 255, 136, 0.2);
+            border: 1px solid #00ff88;
+            display: block;
+        }
+        
+        .status.error {
+            background: rgba(255, 71, 87, 0.2);
+            border: 1px solid #ff4757;
+            display: block;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .info-item {
+            background: rgba(0, 217, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .info-item .value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #00d9ff;
+        }
+        
+        .info-item .label {
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 5px;
+        }
+        
+        .frames-preview {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 10px 0;
+            flex-wrap: wrap;
+        }
+        
+        .frame-thumb {
+            width: 150px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .frame-thumb:hover {
+            transform: scale(1.1);
+            border-color: #00d9ff;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal img {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 10px;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 40px;
+            color: #fff;
+            cursor: pointer;
+        }
+        
+        .or-divider {
+            text-align: center;
+            margin: 20px 0;
+            color: rgba(255, 255, 255, 0.5);
+            position: relative;
+        }
+        
+        .or-divider::before,
+        .or-divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .or-divider::before {
+            left: 0;
+        }
+        
+        .or-divider::after {
+            right: 0;
+        }
+        
+        .cameras-section {
+            display: none;
+        }
+        
+        .cameras-section.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>YOLO 视频识别系统</h1>
+        
+        <!-- 视频链接识别 -->
+        <div class="panel">
+            <h2>视频链接识别</h2>
+            <div class="input-group">
+                <input type="text" id="videoUrl" placeholder="输入视频链接 (如: https://example.com/video.mp4)">
+                <button class="btn-primary" onclick="processVideoUrl()">开始识别</button>
+            </div>
+            
+            <div class="or-divider">或者</div>
+            
+            <div class="input-group">
+                <input type="file" id="videoFile" accept="video/*" style="display: none;" onchange="handleFileSelect(event)">
+                <button class="btn-secondary" onclick="document.getElementById('videoFile').click()">选择本地视频</button>
+                <span id="fileName" style="line-height: 50px; color: rgba(255,255,255,0.7);"></span>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在处理视频...</p>
+            </div>
+            
+            <div class="status" id="videoStatus"></div>
+            
+            <div id="videoResults" style="display: none;">
+                <div class="info-grid" id="videoInfo"></div>
+                <h3 style="margin-top: 20px; color: #00d9ff;">处理帧预览:</h3>
+                <div class="frames-preview" id="framesPreview"></div>
+            </div>
+        </div>
+        
+        <!-- 摄像头识别 -->
+        <div class="panel cameras-section" id="camerasSection">
+            <h2>摄像头实时识别</h2>
+            <div class="video-container">
+                <div class="video-box">
+                    <h3>实时画面</h3>
+                    <div class="video-wrapper">
+                        <img id="cameraFeed" src="" alt="Camera Feed">
+                    </div>
+                    <div class="camera-controls">
+                        <button class="btn-success" id="startCameraBtn" onclick="startCamera()">开启摄像头</button>
+                        <button class="btn-danger" id="stopCameraBtn" onclick="stopCamera()" style="display: none;">关闭摄像头</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 切换按钮 -->
+        <div class="panel" style="text-align: center;">
+            <button class="btn-primary" onclick="toggleCameras()">切换到摄像头模式</button>
+        </div>
+    </div>
+    
+    <!-- 图片预览模态框 -->
+    <div class="modal" id="imageModal">
+        <span class="modal-close" onclick="closeModal()">&times;</span>
+        <img id="modalImage" src="" alt="Preview">
+    </div>
+    
+    <script>
+        let currentMode = 'video';
+        let hexToBytes = {};
+        
+        async function processVideoUrl() {
+            const url = document.getElementById('videoUrl').value.trim();
+            if (!url) {
+                showStatus('videoStatus', 'error', '请输入视频链接');
+                return;
+            }
+            
+            showLoading(true);
+            hideResults();
+            
+            try {
+                const response = await fetch('/process_video', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({video_url: url})
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    showStatus('videoStatus', 'error', data.error);
+                } else {
+                    showVideoResults(data);
+                    showStatus('videoStatus', 'success', '视频处理完成！');
+                }
+            } catch (error) {
+                showStatus('videoStatus', 'error', '处理失败: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            document.getElementById('fileName').textContent = file.name;
+            showLoading(true);
+            hideResults();
+            
+            const formData = new FormData();
+            formData.append('video', file);
+            
+            try {
+                const response = await fetch('/upload_video', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    showStatus('videoStatus', 'error', data.error);
+                } else {
+                    showVideoResults(data);
+                    showStatus('videoStatus', 'success', '视频处理完成！');
+                }
+            } catch (error) {
+                showStatus('videoStatus', 'error', '处理失败: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        function showVideoResults(data) {
+            const resultsDiv = document.getElementById('videoResults');
+            const infoGrid = document.getElementById('videoInfo');
+            const framesPreview = document.getElementById('framesPreview');
+            
+            infoGrid.innerHTML = `
+                <div class="info-item">
+                    <div class="value">${data.fps?.toFixed(1) || 'N/A'}</div>
+                    <div class="label">帧率 (FPS)</div>
+                </div>
+                <div class="info-item">
+                    <div class="value">${data.width || 'N/A'}</div>
+                    <div class="label">宽度</div>
+                </div>
+                <div class="info-item">
+                    <div class="value">${data.height || 'N/A'}</div>
+                    <div class="label">高度</div>
+                </div>
+                <div class="info-item">
+                    <div class="value">${data.total_frames || 'N/A'}</div>
+                    <div class="label">总帧数</div>
+                </div>
+            `;
+            
+            framesPreview.innerHTML = '';
+            if (data.frames && data.frames.length > 0) {
+                data.frames.forEach((hex, index) => {
+                    if (!hexToBytes[hex]) {
+                        hexToBytes[hex] = bytesToUrl(hex);
+                    }
+                    const img = document.createElement('img');
+                    img.src = hexToBytes[hex];
+                    img.className = 'frame-thumb';
+                    img.onclick = () => openModal(hexToBytes[hex]);
+                    framesPreview.appendChild(img);
+                });
+            }
+            
+            resultsDiv.style.display = 'block';
+        }
+        
+        function bytesToUrl(hex) {
+            const bytes = new Uint8Array(hex.length / 2);
+            for (let i = 0; i < bytes.length; i++) {
+                bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+            }
+            const blob = new Blob([bytes], {type: 'image/jpeg'});
+            return URL.createObjectURL(blob);
+        }
+        
+        function hideResults() {
+            document.getElementById('videoResults').style.display = 'none';
+        }
+        
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('active', show);
+        }
+        
+        function showStatus(elementId, type, message) {
+            const el = document.getElementById(elementId);
+            el.className = 'status ' + type;
+            el.textContent = message;
+        }
+        
+        function toggleCameras() {
+            const section = document.getElementById('camerasSection');
+            const btn = section.previousElementSibling.querySelector('button');
+            
+            if (section.classList.contains('active')) {
+                section.classList.remove('active');
+                btn.textContent = '切换到摄像头模式';
+                stopCamera();
+            } else {
+                section.classList.add('active');
+                btn.textContent = '切换到视频模式';
+            }
+        }
+        
+        async function startCamera() {
+            try {
+                const response = await fetch('/start_camera');
+                const data = await response.json();
+                
+                if (data.status === 'started') {
+                    document.getElementById('cameraFeed').src = '/video_feed';
+                    document.getElementById('startCameraBtn').style.display = 'none';
+                    document.getElementById('stopCameraBtn').style.display = 'inline-block';
+                }
+            } catch (error) {
+                alert('启动摄像头失败: ' + error.message);
+            }
+        }
+        
+        async function stopCamera() {
+            try {
+                await fetch('/stop_camera');
+                document.getElementById('cameraFeed').src = '';
+                document.getElementById('startCameraBtn').style.display = 'inline-block';
+                document.getElementById('stopCameraBtn').style.display = 'none';
+            } catch (error) {
+                console.error('停止摄像头失败:', error);
+            }
+        }
+        
+        function openModal(src) {
+            document.getElementById('modalImage').src = src;
+            document.getElementById('imageModal').classList.add('active');
+        }
+        
+        function closeModal() {
+            document.getElementById('imageModal').classList.remove('active');
+        }
+        
+        document.getElementById('imageModal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+    </script>
+</body>
+</html>
